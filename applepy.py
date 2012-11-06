@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 import wave
-
+import aifc
 
 class Display:
     
@@ -301,20 +301,49 @@ class Cassette:
 
     def __init__(self, fn):
         wav = wave.open(fn, "r")
-        self.raw = wav.readframes(wav.getnframes())
+        self.raw = wav.readframes( wav.getnframes() )
         self.start_cycle = 0
         self.start_offset = 0
+        self.sample_rate = wav.getframerate()
+        self.sample_width = wav.getsampwidth()
+        self.num_frames = wav.getnframes()
+        self.percentage_read = 0
 
-        for i, b in enumerate(self.raw):
-            if ord(b) > 0xA0:
-                self.start_offset = i
-                break
+        print "Sample Width: ", self.sample_width
+        print "Sample Rate: ", self.sample_rate
+        print "Num Samples: ", self.num_frames
+
+#        for i in range(0, self.num_frames * self.sample_width, self.sample_width):
+#           print struct.unpack("<h", self.raw[ i:i+self ] )
+#self.raw[i] > 0xA0:
+#              self.start_offset = i
+#              print "File starts at ", self.start_offset
+#              break
+
+        self.start_offset = 0
 
     def read_byte(self, cycle):
         if self.start_cycle == 0:
             self.start_cycle = cycle
-        offset = self.start_offset + (cycle - self.start_cycle) * 22000 / 1000000
-        return ord(self.raw[offset]) if offset < len(self.raw) else 0x80
+        offset = self.sample_width * (self.start_offset + (cycle - self.start_cycle) * self.sample_rate  / 1000000)
+ 
+        percentage_read = (offset * 100) / len(self.raw)
+        if percentage_read != self.percentage_read:
+           if offset > len(self.raw):
+              print "End of cassette reached"
+           else:
+              print "percentage_read: ", percentage_read
+           self.percentage_read = percentage_read
+
+        return self.raw[offset] if offset < len(self.raw) else 0x80
+
+    def dump(self, start_sample_num=0, num_samples=0):
+       _num_samples = num_samples if num_samples != 0 else wav.getnframes()
+       for i in range(start_sample_num, num_samples * self.sample_width, self.sample_width):
+          print i / self.sample_width, ": ",
+          for n in range(self.sample_width):
+             print self.raw[i + n],
+          print
 
 
 class SoftSwitches:
